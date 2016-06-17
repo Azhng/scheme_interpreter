@@ -2,6 +2,8 @@ module Main where
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Numeric
+import Data.Ratio
+import Data.Complex
 -- import Control.Monad
 
 main :: IO()
@@ -25,8 +27,11 @@ data LispVal = Atom String
               | List [LispVal]
               | DottedList [LispVal] LispVal
               | Number Integer
+              | Float Double
               | String String
               | Bool Bool
+              | Ratio Rational
+              | Complex (Complex Double)
 
 parseString :: Parser LispVal
 parseString = do
@@ -46,7 +51,14 @@ parseAtom = do
                 _    -> Atom atom
 
 parseNumber :: Parser LispVal
-parseNumber = parseDecimal1 <|> parseDecimal2 <|> parseHex <|> parseOct <|> parseBin
+parseNumber = try parseComplex
+          <|> try parseFloat
+          <|> try parseRatio
+          <|> try parseDecimal1 
+          <|> try parseDecimal2 
+          <|> try parseHex 
+          <|> try parseOct 
+          <|> try parseBin
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
@@ -104,6 +116,36 @@ parseBool :: Parser LispVal
 parseBool = do
               _ <- char '#'
               (char 't' >> return (Bool True)) <|> (char 'f' >> return (Bool False))
+
+parseFloat :: Parser LispVal
+parseFloat = do
+              x <- many1 digit
+              _ <- char '.'
+              y <- many1 digit
+              return $ Float (fst . head $ readFloat (x ++ "." ++ y))
+
+parseRatio :: Parser LispVal
+parseRatio = do 
+              x <- many1 digit
+              _ <- char '/'
+              y <- many1 digit
+              return $ Ratio $ (read x) % (read y)
+
+toDouble :: LispVal -> Double 
+toDouble(Float f) = realToFrac f
+toDouble(Number n) = fromIntegral n
+toDouble _ = error "wrong type " 
+
+
+
+parseComplex :: Parser LispVal
+parseComplex = do
+                x <- (try parseFloat <|> try parseDecimal1)
+                _ <- char '+'
+                y <- (try parseFloat <|> try parseDecimal1)
+                _ <- char 'i'
+                return $ Complex $ toDouble x :+ toDouble y
+
 
 escapedChars :: Parser Char 
 escapedChars = do 
