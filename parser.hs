@@ -9,12 +9,15 @@ import Data.Array
 import Data.Complex
 import Control.Monad
 import Control.Monad.Error 
+import System.IO hiding (try)
 
 main :: IO()
 main = do 
         args <- getArgs
-        evaled <- return $ liftM show $ readExpr (args !! 0) >>= eval
-        putStrLn $ extractValue $ trapError evaled
+        case length args of 
+          0 -> runRepl
+          1 -> evalAndPrint $ args !! 0
+          otherwise -> putStrLn "Program takes only 0 or 1 argument"
 
 symbol :: Parser Char 
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
@@ -441,6 +444,29 @@ equal [arg1, arg2] = do
 equal badArgList = throwError $ NumArgs 2 badArgList
 
 
+-- Building REPL 
+
+flushStr :: String -> IO()
+flushStr str = putStr str >> hFlush stdout
+
+readPrompt :: String -> IO String
+readPrompt prompt = flushStr prompt >> getLine
+
+evalString :: String -> IO String 
+evalString expr = return $ extractValue $ trapError (liftM show $ readExpr expr >>= eval)
+
+evalAndPrint :: String -> IO()
+evalAndPrint expr = evalString expr >>= putStrLn
+
+until_ :: Monad m => (a -> Bool) -> m a -> (a -> m()) -> m() 
+until_ pred prompt action = do
+                            result <- prompt
+                            if pred result 
+                              then return()
+                              else action result >> until_ pred prompt action
+
+runRepl :: IO()
+runRepl = until_ (=="quit") (readPrompt "Lisp>>") evalAndPrint
 
 
 
