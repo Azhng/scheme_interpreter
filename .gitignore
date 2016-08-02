@@ -4,3 +4,5 @@
 *.o
 *.hi
 .vscode/
+ex1.12.rkt
+temp.sc
